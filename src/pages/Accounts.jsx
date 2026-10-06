@@ -63,7 +63,7 @@ export default function Accounts() {
   };
 
   const gradients = [
-    'linear-gradient(90deg, #00d4aa, #7c3aed)',
+    'linear-gradient(90deg, #4b3bff, #8f86ff)',
     'linear-gradient(90deg, #3b82f6, #06b6d4)',
     'linear-gradient(90deg, #ec4899, #f97316)',
     'linear-gradient(90deg, #8b5cf6, #d946ef)',
@@ -85,7 +85,7 @@ export default function Accounts() {
       <div className="accounts-grid stagger-children">
         {/* Cash Wallet Card */}
         <div className="account-card cash-wallet-card animate-slide-up">
-          <div className="account-card-gradient" style={{ background: 'linear-gradient(90deg, #f59e0b, #f97316)' }} />
+          <div className="account-card-gradient" style={{ background: 'linear-gradient(90deg, #ff6f4a, #ff9a6b)' }} />
           <div className="account-card-header">
             <div className="account-card-bank">
               <div className="account-card-bank-icon">

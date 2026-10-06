@@ -74,7 +74,7 @@ export default function History() {
         <h3 className="chart-card-title">Last 12 Months</h3>
         <ResponsiveContainer width="100%" height={320}>
           <BarChart data={barData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(13,17,40,0.08)" />
             <XAxis dataKey="name" />
             <YAxis />
             <Tooltip
@@ -92,8 +92,8 @@ export default function History() {
             <Bar dataKey="amount" fill="url(#histGradient)" radius={[6, 6, 0, 0]} />
             <defs>
               <linearGradient id="histGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#7c3aed" />
-                <stop offset="100%" stopColor="#00d4aa" />
+                <stop offset="0%" stopColor="#8f86ff" />
+                <stop offset="100%" stopColor="#4b3bff" />
               </linearGradient>
             </defs>
           </BarChart>

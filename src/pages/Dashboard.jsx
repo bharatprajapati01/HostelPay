@@ -76,26 +76,26 @@ export default function Dashboard() {
           label="Total Spent"
           value={formatCurrency(summary.totalSpent)}
           change={`${summary.transactionCount} transactions`}
-          color="#ef4444"
+          color="#e03a4e"
         />
         <StatCard
           icon={<CreditCard size={20} />}
           label="Online Payments"
           value={formatCurrency(summary.byPaymentType.online)}
-          color="#00d4aa"
+          color="#4b3bff"
         />
         <StatCard
           icon={<Banknote size={20} />}
           label="Cash Payments"
           value={formatCurrency(summary.byPaymentType.cash)}
-          color="#f59e0b"
+          color="#ff6f4a"
         />
         <StatCard
           icon={<IndianRupee size={20} />}
           label="Total Balance"
           value={formatCurrency(totalBankBalance + cashWallet.balance)}
           change={`Banks: ${formatCurrency(totalBankBalance)} • Cash: ${formatCurrency(cashWallet.balance)}`}
-          color="#7c3aed"
+          color="#8f86ff"
         />
       </div>
 
@@ -141,7 +141,7 @@ export default function Dashboard() {
           <h3 className="chart-card-title">Monthly Trend</h3>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={barData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(13,17,40,0.08)" />
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip
@@ -155,8 +155,8 @@ export default function Dashboard() {
               <Bar dataKey="amount" fill="url(#barGradient)" radius={[6, 6, 0, 0]} />
               <defs>
                 <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00d4aa" />
-                  <stop offset="100%" stopColor="#7c3aed" />
+                  <stop offset="0%" stopColor="#4b3bff" />
+                  <stop offset="100%" stopColor="#8f86ff" />
                 </linearGradient>
               </defs>
             </BarChart>
