@@ -12,11 +12,15 @@ import {
   saveSavingsGoals,
   getSavingsTransfers,
   saveSavingsTransfers,
-  getUsers,
-  saveUsers,
   getCurrentUserStorage,
   setCurrentUserStorage,
+  hydrateFromServer,
+  pushLocalToServer,
+  flushSync,
+  hasPendingSync,
+  setSyncEnabled,
 } from '../utils/storage';
+import { api, getToken, setToken } from '../utils/api';
 
 const AppContext = createContext(null);
 
@@ -29,56 +33,88 @@ export function AppProvider({ children }) {
   const [savingsGoals, setSavingsGoals] = useState(() => getSavingsGoals());
   const [savingsTransfers, setSavingsTransfers] = useState(() => getSavingsTransfers());
 
-  // Reload user data when currentUser session changes
-  useEffect(() => {
+  const reloadAll = useCallback(() => {
     setAccounts(getAccounts());
     setTransactions(getTransactions());
     setCategories(getCategories());
     setCashWallet(getCashWallet());
     setSavingsGoals(getSavingsGoals());
     setSavingsTransfers(getSavingsTransfers());
-  }, [currentUser]);
-
-  const login = useCallback((username, password) => {
-    const users = getUsers();
-    const user = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
-    if (!user) {
-      throw new Error('User not found. Try creating an account!');
-    }
-    if (user.password !== password) {
-      throw new Error('Incorrect password. Please try again.');
-    }
-    setCurrentUserStorage(user.username);
-    setCurrentUser(user.username);
-    return user.username;
   }, []);
 
-  const register = useCallback((username, password) => {
-    const trimmed = username ? username.trim() : '';
-    if (!trimmed || trimmed.length < 3) {
-      throw new Error('Username must be at least 3 characters long.');
-    }
-    if (!password || password.length < 3) {
-      throw new Error('Password must be at least 3 characters long.');
-    }
-    const users = getUsers();
-    const exists = users.some((u) => u.username.toLowerCase() === trimmed.toLowerCase());
-    if (exists) {
-      throw new Error('Username already exists. Choose a different one.');
-    }
-    const newUser = { username: trimmed, password };
-    const nextUsers = [...users, newUser];
-    saveUsers(nextUsers);
-    
-    setCurrentUserStorage(newUser.username);
-    setCurrentUser(newUser.username);
-    return newUser.username;
-  }, []);
+  // Reload user data when currentUser session changes
+  useEffect(() => {
+    reloadAll();
+  }, [currentUser, reloadAll]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await flushSync(); // make sure the last changes reach the server first
+    setSyncEnabled(false);
+    setToken(null);
     setCurrentUserStorage(null);
     setCurrentUser(null);
   }, []);
+
+  // Fetch the latest copy from the server. If the server has nothing for this
+  // account yet (e.g. an account that only existed in this browser), upload what is here.
+  const pullFromServer = useCallback(async () => {
+    if (!getToken()) return;
+    try {
+      // Local changes that haven't reached the server yet go up first, never get overwritten
+      if (hasPendingSync()) {
+        await flushSync();
+        return;
+      }
+      const { data } = await api('/api/data');
+      if (hydrateFromServer(data)) reloadAll();
+      else await pushLocalToServer();
+      setSyncEnabled(true);
+    } catch (err) {
+      if (err.status === 401) logout();
+    }
+  }, [reloadAll, logout]);
+
+  // Stay in sync with other devices: pull on load and whenever the tab comes back into view
+  useEffect(() => {
+    if (!currentUser) return undefined;
+    pullFromServer();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') pullFromServer();
+      else flushSync({ keepalive: true });
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pagehide', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pagehide', onVisible);
+    };
+  }, [currentUser, pullFromServer]);
+
+  const signIn = useCallback(async (path, username, password) => {
+    let result;
+    try {
+      result = await api(path, { method: 'POST', body: { username, password } });
+    } catch (err) {
+      // Accounts made before cloud sync only exist in this browser
+      const typed = username.trim().toLowerCase();
+      let local = [];
+      try { local = JSON.parse(localStorage.getItem('hostelPay_users') || '[]'); } catch { /* ignore */ }
+      if (path.endsWith('/login') && err.status === 404 && local.some((u) => u.username.toLowerCase() === typed)) {
+        throw new Error('This account was saved only in this browser. Choose Sign Up with the same username to move it to the cloud. Your data comes with it.');
+      }
+      throw err;
+    }
+    const { token, username: name } = result;
+    setSyncEnabled(false);
+    setToken(token);
+    setCurrentUserStorage(name);
+    // Show this account's data immediately; the pull effect above refreshes it from the server
+    setCurrentUser(name);
+    return name;
+  }, []);
+
+  const login = useCallback((username, password) => signIn('/api/auth/login', username, password), [signIn]);
+  const register = useCallback((username, password) => signIn('/api/auth/register', username, password), [signIn]);
 
   // ─── Account Actions ────────────────────────────────
   const addAccount = useCallback((account) => {

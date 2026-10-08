@@ -1,6 +1,7 @@
+import { api, getToken } from './api';
+
 // Storage keys
 const KEYS = {
-  USERS: 'hostelPay_users',
   CURRENT_USER: 'hostelPay_currentUser',
   ACCOUNTS: 'accounts',
   TRANSACTIONS: 'transactions',
@@ -16,7 +17,7 @@ function getCurrentUser() {
 }
 
 function getScopedKey(key) {
-  if (key === KEYS.USERS || key === KEYS.CURRENT_USER) {
+  if (key === KEYS.CURRENT_USER) {
     return key;
   }
   const user = getCurrentUser();
@@ -53,6 +54,77 @@ function getItem(key, fallback = null) {
 function setItem(key, value) {
   const scopedKey = getScopedKey(key);
   localStorage.setItem(scopedKey, JSON.stringify(value));
+  if (SYNCED_KEYS.includes(key)) scheduleSync();
+}
+
+// ─── Server sync ─────────────────────────────────────────
+// localStorage stays the fast local copy. Every change is also pushed to the
+// server (debounced), so the same account shows the same data on any device.
+const SYNCED_KEYS = [
+  KEYS.ACCOUNTS,
+  KEYS.TRANSACTIONS,
+  KEYS.CATEGORIES,
+  KEYS.CASH_WALLET,
+  KEYS.SAVINGS_GOALS,
+  KEYS.SAVINGS_TRANSFERS,
+];
+let syncTimer = null;
+let syncPending = false;
+// Nothing is uploaded until the first download from the server has finished.
+// Otherwise a fresh device could upload its empty defaults over the real data.
+let syncEnabled = false;
+
+export function setSyncEnabled(enabled) {
+  syncEnabled = enabled;
+  if (!enabled) {
+    clearTimeout(syncTimer);
+    syncPending = false;
+  }
+}
+
+export function hasPendingSync() {
+  return syncPending;
+}
+
+function scheduleSync() {
+  if (!syncEnabled || !getToken() || !getCurrentUser()) return;
+  syncPending = true;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => flushSync(), 700);
+}
+
+export function getLocalSnapshot() {
+  const data = {};
+  for (const key of SYNCED_KEYS) {
+    const raw = localStorage.getItem(getScopedKey(key));
+    if (raw) data[key] = JSON.parse(raw);
+  }
+  return data;
+}
+
+export async function flushSync({ keepalive = false } = {}) {
+  clearTimeout(syncTimer);
+  if (!syncPending || !getToken()) return;
+  syncPending = false;
+  try {
+    await api('/api/data', { method: 'PUT', body: { data: getLocalSnapshot() }, keepalive });
+  } catch (err) {
+    if (err.status !== 401) syncPending = true; // network problem: retry on the next change
+  }
+}
+
+// Replace the local copy with what the server has. Returns false if the server has nothing yet.
+export function hydrateFromServer(data) {
+  if (!data || Object.keys(data).length === 0) return false;
+  for (const key of SYNCED_KEYS) {
+    if (data[key] !== undefined) localStorage.setItem(getScopedKey(key), JSON.stringify(data[key]));
+  }
+  return true;
+}
+
+export function pushLocalToServer() {
+  syncPending = true;
+  return flushSync();
 }
 
 // ─── Accounts ────────────────────────────────────────────
@@ -206,21 +278,8 @@ export function saveSavingsTransfers(transfers) {
   setItem(KEYS.SAVINGS_TRANSFERS, transfers);
 }
 
-// ─── Users & Auth ────────────────────────────────────────
-export function getUsers() {
-  const users = getItem(KEYS.USERS, null);
-  if (!users) {
-    const defaultUsers = [{ username: 'student', password: '123' }];
-    setItem(KEYS.USERS, defaultUsers);
-    return defaultUsers;
-  }
-  return users;
-}
-
-export function saveUsers(users) {
-  setItem(KEYS.USERS, users);
-}
-
+// ─── Session ─────────────────────────────────────────────
+// Accounts and passwords live on the server. Only the signed-in username is kept here.
 export function getCurrentUserStorage() {
   return localStorage.getItem(KEYS.CURRENT_USER);
 }

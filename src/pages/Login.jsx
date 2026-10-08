@@ -10,30 +10,24 @@ export default function Login() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const handleSubmit = (e) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setLoading(true);
 
     try {
       if (isLoginTab) {
-        login(username, password);
+        await login(username, password);
       } else {
-        register(username, password);
-        setSuccess('Account created successfully! Logging you in...');
+        await register(username, password);
+        setSuccess('Account created. Logging you in...');
       }
     } catch (err) {
       setError(err.message || 'Something went wrong');
-    }
-  };
-
-  const handleDemoLogin = () => {
-    setError('');
-    setSuccess('');
-    try {
-      login('student', '123');
-    } catch (err) {
-      setError(err.message || 'Something went wrong');
+      setLoading(false);
     }
   };
 
@@ -115,37 +109,20 @@ export default function Login() {
               <input
                 id="password"
                 type="password"
-                placeholder="Enter password"
+                placeholder={isLoginTab ? 'Enter password' : 'At least 6 characters'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                autoComplete="current-password"
+                autoComplete={isLoginTab ? 'current-password' : 'new-password'}
               />
             </div>
           </div>
 
-          <button type="submit" className="login-btn-submit">
-            {isLoginTab ? 'Sign In' : 'Create Account'}
+          <button type="submit" className="login-btn-submit" disabled={loading}>
+            {loading ? 'Please wait...' : isLoginTab ? 'Sign In' : 'Create Account'}
           </button>
         </form>
 
-        {isLoginTab && (
-          <div className="login-divider-container">
-            <div className="login-divider-line"></div>
-            <span className="login-divider-text">Or Use Demo Credentials</span>
-            <div className="login-divider-line"></div>
-          </div>
-        )}
-
-        {isLoginTab && (
-          <button
-            type="button"
-            className="login-btn-demo"
-            onClick={handleDemoLogin}
-          >
-            Demo Log In (student / 123)
-          </button>
-        )}
       </div>
     </div>
   );
