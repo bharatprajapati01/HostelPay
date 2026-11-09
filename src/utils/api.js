@@ -1,6 +1,9 @@
 // Talks to the HostelPay server. In dev, Vite proxies /api to localhost:5000.
-// In production set VITE_API_URL to the server's address (no trailing slash).
-const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+// In production set VITE_API_URL to the server's address (no trailing slash).        
+const API_URL = (
+  import.meta.env.VITE_API_URL ||
+  'https://hostelpay.onrender.com'
+).replace(/\/$/, '');
 const TOKEN_KEY = 'hostelPay_token';
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
